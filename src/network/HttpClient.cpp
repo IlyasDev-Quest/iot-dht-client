@@ -11,9 +11,27 @@ void HttpClient::sendJson(const String &url, const String &json) {
         return;
     }
 
-    WiFiClientSecure client;
-    client.setInsecure();  // Skip SSL verification
     HTTPClient http;
+    WiFiClient *client = nullptr;
+    
+    // Determine if URL uses HTTPS or HTTP
+    bool isHttps = url.startsWith("https://");
+    
+    if (isHttps) {
+        // Use secure client for HTTPS
+        WiFiClientSecure *secureClient = new WiFiClientSecure();
+        secureClient->setInsecure();  // Skip SSL verification
+        client = secureClient;
+        #if DEBUG_HTTP
+        Serial.println("[HTTP] Using HTTPS");
+        #endif
+    } else {
+        // Use regular client for HTTP
+        client = new WiFiClient();
+        #if DEBUG_HTTP
+        Serial.println("[HTTP] Using HTTP");
+        #endif
+    }
 
     for (uint8_t attempt = 1; attempt <= HTTP_RETRIES; attempt++) {
         #if DEBUG_HTTP
@@ -22,7 +40,7 @@ void HttpClient::sendJson(const String &url, const String &json) {
         Serial.println("Payload: " + json);
         #endif
 
-        http.begin(client, url);
+        http.begin(*client, url);
         http.addHeader("Content-Type", "application/json");
         http.setTimeout(HTTP_TIMEOUT_MS);
 
@@ -35,6 +53,7 @@ void HttpClient::sendJson(const String &url, const String &json) {
             Serial.println("Response: " + response);
             #endif
             http.end();
+            delete client;
             return;
         } else {
             #if DEBUG_HTTP
@@ -48,4 +67,6 @@ void HttpClient::sendJson(const String &url, const String &json) {
     #if DEBUG_HTTP
     Serial.println("[HTTP] All retries failed.");
     #endif
+    
+    delete client;
 }
