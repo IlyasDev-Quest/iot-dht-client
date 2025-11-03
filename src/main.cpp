@@ -1,20 +1,33 @@
-/*
-ESP8266 Blink
-Blink the blue LED on the ESP8266 module
-*/
-
 #include <Arduino.h>
-#define LED 2 // Define blinking LED pin
+#include "DHTSensor.h"
+#include "WiFiManager.h"
+#include "HttpClient.h"
+#include "JsonHelper.h"
+#include "secrets.h"
 
-void setup()
-{
-  pinMode(LED, OUTPUT); // Initialize the LED pin as an output
+DHTSensor dhtSensor;
+HttpClient httpClient;
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  Serial.println("Starting system...");
+  
+  WiFiManager::connectWiFi(); 
+  dhtSensor.begin();  
 }
-// the loop function runs over and over again forever
-void loop()
-{
-  digitalWrite(LED, LOW);  // Turn the LED on (Note that LOW is the voltage level)
-  delay(1000);             // Wait for a second
-  digitalWrite(LED, HIGH); // Turn the LED off by making the voltage HIGH
-  delay(1000);             // Wait for two seconds
+
+void loop() {
+  float temperature = dhtSensor.readTemperature();
+  float humidity = dhtSensor.readHumidity();
+
+  if (!isnan(temperature) && !isnan(humidity)) {
+    String payload = JsonHelper::createDhtJson(temperature, humidity);
+    httpClient.sendJson(API_URL, payload); 
+
+  } else {
+    Serial.println("Failed to read from DHT sensor.");
+  }
+  delay(POST_INTERVAL_MS);
 }
